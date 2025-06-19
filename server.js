@@ -11,16 +11,16 @@ app.use(express.static(path.join(__dirname, "public")));
 
 let clients = [];
 
-// Add before wss.on("connection")
+// Single connection handler with proper logging
 wss.on("connection", (ws, req) => {
   console.log("New WebSocket connection from:", req.socket.remoteAddress);
-  clients.push(ws);
-  // ... rest of your code
-});
-wss.on("connection", (ws) => {
+  console.log("Total clients:", clients.length + 1);
+  
   clients.push(ws);
 
   ws.on("message", (message) => {
+    console.log("Received message, broadcasting to", clients.length - 1, "other clients");
+    
     clients.forEach((client) => {
       if (client !== ws && client.readyState === WebSocket.OPEN) {
         client.send(message);
@@ -29,11 +29,24 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("close", () => {
+    console.log("Client disconnected");
     clients = clients.filter((client) => client !== ws);
+    console.log("Total clients:", clients.length);
   });
+
+  ws.on("error", (error) => {
+    console.error("WebSocket error:", error);
+  });
+
+  // Send a welcome message to confirm connection
+  ws.send(JSON.stringify({ 
+    type: "system", 
+    message: "Connected to signaling server" 
+  }));
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log("✅ Server running on port " + PORT);
+  console.log("WebSocket server ready for connections");
 });
